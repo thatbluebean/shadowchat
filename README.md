@@ -8,7 +8,7 @@ For too long have mainstream corpo messaging applications plagued the world, inf
 
 We removed slop such as:
 
-- Age verificatin
+- Age verification
 
 - Closed source code
 
@@ -42,6 +42,8 @@ We removed slop such as:
 
 ### INSTRUCTIONS
 
+Download the .py and run
+
 MacOS / LINUX
 
 ```
@@ -54,5 +56,3 @@ WINDOWS
 pip install windows-curses
 python shadow_chat.py
 ```
-
-![](/home/georg/.config/marktext/images/2026-04-20-15-28-18-image.png)
