@@ -1,67 +1,86 @@
 import curses
 import socket
 import struct
-import threading
 import json
-import queue
 import textwrap
 import time
 import sys
-import os # For running commands on the system
+import asyncio
+from pathlib import Path
+
+from desktop_notifier import DesktopNotifier, ReplyField, Sound
 
 # --- Network Configuration ---
 MCAST_GRP = '224.1.1.1'
 MCAST_PORT = 5007
 
-# --- Set OS version ---
-match sys.platform:
-    case "linux": osver = "linux"
-    case "darwin": osver = "macos"
-    case "win32": osver = "win32"
-    case _: osver = "unknown"
-    
-    
-# Thread-safe queue for incoming messages
-msg_queue = queue.Queue()
+# Map user color choices to curses color pairs
+COLOR_MAP = {
+    'cyan': 1, 'green': 2, 'yellow': 3,
+    'red': 4, 'magenta': 5, 'white': 6
+}
 
-def setup_multicast_socket():
-    """Sets up a UDP socket for both sending and receiving multicast packets."""
+PING_SOUND = Sound(path=Path("ping.mp3").resolve())
+
+
+# ---------------------------------------------------------------------------
+# Asyncio UDP Protocol
+# ---------------------------------------------------------------------------
+
+class MulticastProtocol(asyncio.DatagramProtocol):
+    """Asyncio UDP datagram protocol for multicast send/receive."""
+
+    def __init__(self, msg_queue: asyncio.Queue):
+        self._queue = msg_queue
+        self.transport: asyncio.DatagramTransport | None = None
+
+    def connection_made(self, transport: asyncio.DatagramTransport):
+        self.transport = transport
+
+    def datagram_received(self, data: bytes, addr):
+        try:
+            msg = json.loads(data.decode('utf-8'))
+            self._queue.put_nowait(msg)
+        except Exception:
+            pass  # Silently drop malformed packets
+
+    def error_received(self, exc: Exception):
+        pass  # Keep running on transient socket errors
+
+    def send(self, msg: dict):
+        if self.transport:
+            try:
+                data = json.dumps(msg).encode('utf-8')
+                self.transport.sendto(data, (MCAST_GRP, MCAST_PORT))
+            except Exception:
+                pass
+
+
+def create_multicast_socket() -> socket.socket:
+    """Creates and configures the raw UDP multicast socket."""
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
-    
-    # Allow multiple clients on the same machine to bind to the same port
+
     try:
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     except AttributeError:
         pass
-        
-    # Bind to the port
+
     sock.bind(('', MCAST_PORT))
-    
-    # Join the multicast group
+
     mreq = struct.pack("4sl", socket.inet_aton(MCAST_GRP), socket.INADDR_ANY)
     sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
-    
-    # Enable loopback so the sender also receives their own messages
     sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_LOOP, 1)
-    
-    # Set Time-to-Live (1 is standard for local subnet/LAN)
     sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 1)
-    
+
+    sock.setblocking(False)
     return sock
 
-def listener_thread(sock):
-    """Listens for UDP packets continuously and pushes them to the UI queue."""
-    while True:
-        try:
-            data, _ = sock.recvfrom(10240)
-            msg = json.loads(data.decode('utf-8'))
-            msg_queue.put(msg)
-        except Exception:
-            # Silently handle JSON decode or socket errors to protect the TUI
-            pass
+
+# ---------------------------------------------------------------------------
+# Curses helpers
+# ---------------------------------------------------------------------------
 
 def init_colors():
-    """Initializes standard curses colors."""
     curses.start_color()
     curses.use_default_colors()
     curses.init_pair(1, curses.COLOR_CYAN, -1)
@@ -71,166 +90,248 @@ def init_colors():
     curses.init_pair(5, curses.COLOR_MAGENTA, -1)
     curses.init_pair(6, curses.COLOR_WHITE, -1)
 
-# Map user color choices to curses color pairs
-COLOR_MAP = {
-    'cyan': 1, 'green': 2, 'yellow': 3, 
-    'red': 4, 'magenta': 5, 'white': 6
-}
 
-def run_chat(stdscr, username, user_color):
-    """Main Curses TUI Loop."""
-    init_colors()
-    
-    # Setup Network
-    sock = setup_multicast_socket()
-    
-    # Start the daemon listener thread
-    t = threading.Thread(target=listener_thread, args=(sock,), daemon=True)
-    t.start()
-    
-    # Configure Curses
-    stdscr.nodelay(True)  # Don't block waiting for input
-    stdscr.timeout(50)    # Refresh every 50ms
-    curses.curs_set(0)    # Hide cursor
-    
-    chat_history = []
-    input_buffer = ""
-    
-    while True:
-        max_y, max_x = stdscr.getmaxyx()
-        
-        # 1. Process new messages from the network
-        while not msg_queue.empty():
-            msg_data = msg_queue.get() # { user, color, test, time }
-            
-            chat_history.append(msg_data)
-            if username != msg_data.get('user'): # Dont notify for own messages
-                if osver == "linux":
-                    os.system(f'notify-send -a "Shadow Chat" "New message from {msg_data.get('user')}: {msg_data.get('text')}"')
-                
-            
-        stdscr.erase()
-        
-        # 2. Draw Header
-        header_text = f" SHADOW-CHAT | User: {username} | Type /quit to exit or press Ctrl + C "
-        try:
-            stdscr.addstr(0, 0, header_text.ljust(max_x)[:max_x], curses.color_pair(6) | curses.A_REVERSE)
-        except curses.error:
-            pass
+def draw_screen(stdscr, username: str, chat_history: list, input_buffer: str):
+    """Renders the full TUI frame."""
+    max_y, max_x = stdscr.getmaxyx()
+    stdscr.erase()
 
-        # 3. Draw Separator
-        try:
-            stdscr.hline(max_y - 2, 0, curses.ACS_HLINE, max_x)
-        except curses.error:
-            pass
+    # Header
+    header_text = f" SHADOW-CHAT | User: {username} | Type /quit or press Ctrl+C to exit "
+    try:
+        stdscr.addstr(0, 0, header_text.ljust(max_x)[:max_x],
+                      curses.color_pair(6) | curses.A_REVERSE)
+    except curses.error:
+        pass
 
-        # 4. Process and Draw Chat Window (Auto-Scrolling & Word Wrapping)
-        chat_win_lines = max_y - 3
-        if chat_win_lines > 0:
-            render_lines = []
-            
-            # Format history into lines that fit the current screen width
-            for m in chat_history:
-                time_str = m.get("time", "00:00")
-                u_str = m.get("user", "Unknown")
-                c_str = m.get("color", "white")
-                text = m.get("text", "")
-                
-                prefix = f"[{time_str}] {u_str}: "
-                indent = " " * len(prefix)
-                
-                # Protect against tiny terminals crashing textwrap
-                safe_width = max(10, max_x - 1 - len(prefix))
-                wrapped = textwrap.wrap(text, width=safe_width)
-                
-                if not wrapped:
-                    render_lines.append((prefix, "", c_str, True))
+    # Separator
+    try:
+        stdscr.hline(max_y - 2, 0, curses.ACS_HLINE, max_x)
+    except curses.error:
+        pass
+
+    # Chat window
+    chat_win_lines = max_y - 3
+    if chat_win_lines > 0:
+        render_lines = []
+        for m in chat_history:
+            time_str = m.get("time", "00:00")
+            u_str = m.get("user", "Unknown")
+            c_str = m.get("color", "white")
+            text = m.get("text", "")
+
+            prefix = f"[{time_str}] {u_str}: "
+            indent = " " * len(prefix)
+            safe_width = max(10, max_x - 1 - len(prefix))
+            wrapped = textwrap.wrap(text, width=safe_width)
+
+            if not wrapped:
+                render_lines.append((prefix, "", c_str, True))
+            else:
+                for i, line in enumerate(wrapped):
+                    render_lines.append((prefix if i == 0 else indent, line, c_str, i == 0))
+
+        for idx, (pref, line_text, c_name, is_first) in enumerate(render_lines[-chat_win_lines:]):
+            c_pair = COLOR_MAP.get(c_name, 6)
+            try:
+                if is_first:
+                    stdscr.addstr(1 + idx, 0, pref, curses.color_pair(c_pair) | curses.A_BOLD)
+                    stdscr.addstr(1 + idx, len(pref), line_text, curses.color_pair(6))
                 else:
-                    for i, line in enumerate(wrapped):
-                        if i == 0:
-                            render_lines.append((prefix, line, c_str, True))
-                        else:
-                            render_lines.append((indent, line, c_str, False))
-            
-            # Auto-scroll: Only grab the latest lines that fit vertically
-            display_lines = render_lines[-chat_win_lines:]
-            
-            for idx, (pref, line_text, c_name, is_first) in enumerate(display_lines):
-                c_pair = COLOR_MAP.get(c_name, 6)
-                try:
-                    if is_first:
-                        # Colorize the prefix (username) but keep text white
-                        stdscr.addstr(1 + idx, 0, pref, curses.color_pair(c_pair) | curses.A_BOLD)
-                        stdscr.addstr(1 + idx, len(pref), line_text, curses.color_pair(6))
-                    else:
-                        # Draw indented wrapped text
-                        stdscr.addstr(1 + idx, 0, pref, curses.color_pair(6))
-                        stdscr.addstr(1 + idx, len(pref), line_text, curses.color_pair(6))
-                except curses.error:
-                    pass
+                    stdscr.addstr(1 + idx, 0, pref, curses.color_pair(6))
+                    stdscr.addstr(1 + idx, len(pref), line_text, curses.color_pair(6))
+            except curses.error:
+                pass
 
-        # 5. Draw Input Area
-        prompt = "> "
-        # Tail the input buffer if the user types past the screen width
-        display_input = input_buffer[-(max_x - 3):] if len(input_buffer) > max_x - 3 else input_buffer
-        try:
-            stdscr.addstr(max_y - 1, 0, prompt + display_input)
-        except curses.error:
-            pass
-            
-        stdscr.refresh()
-        
-        # 6. Handle User Input
-        try:
-            ch = stdscr.getch()
-        except curses.error:
-            continue
-            
+    # Input area
+    prompt = "> "
+    display_input = (input_buffer[-(max_x - 3):]
+                     if len(input_buffer) > max_x - 3
+                     else input_buffer)
+    try:
+        stdscr.addstr(max_y - 1, 0, prompt + display_input)
+    except curses.error:
+        pass
+
+    stdscr.refresh()
+
+
+# ---------------------------------------------------------------------------
+# Async TUI coroutines
+# ---------------------------------------------------------------------------
+
+async def input_handler(
+    stdscr,
+    loop: asyncio.AbstractEventLoop,
+    protocol: MulticastProtocol,
+    username: str,
+    user_color: str,
+    chat_history: list,
+    input_buffer_ref: list,   # single-element list used as a mutable reference
+    stop_event: asyncio.Event,
+):
+    """Reads keystrokes in a thread-pool executor so getch() never blocks the loop."""
+    executor = None  # Use the default ThreadPoolExecutor
+
+    while not stop_event.is_set():
+        ch = await loop.run_in_executor(executor, stdscr.getch)
+
         if ch == -1:
+            # nodelay returned immediately with no key — yield briefly
+            await asyncio.sleep(0.01)
             continue
-            
+
         if ch in (curses.KEY_ENTER, 10, 13):
-            clean_input = input_buffer.strip()
+            clean_input = input_buffer_ref[0].strip()
             if clean_input == "/quit":
+                stop_event.set()
                 break
             if clean_input:
                 out_msg = {
                     "user": username,
                     "color": user_color,
                     "text": clean_input,
-                    "time": time.strftime("%H:%M")
+                    "time": time.strftime("%H:%M"),
                 }
-                out_data = json.dumps(out_msg).encode('utf-8')
-                try:
-                    sock.sendto(out_data, (MCAST_GRP, MCAST_PORT))
-                except Exception:
-                    pass
-            input_buffer = ""
+                protocol.send(out_msg)
+            input_buffer_ref[0] = ""
+
         elif ch in (curses.KEY_BACKSPACE, 127, 8):
-            input_buffer = input_buffer[:-1]
+            input_buffer_ref[0] = input_buffer_ref[0][:-1]
+
         elif ch == curses.KEY_RESIZE:
-            # Curses handles SIGWINCH internally, the next loop iteration redraws safely
-            pass
-        elif 32 <= ch <= 126: # Printable ASCII characters
-            input_buffer += chr(ch)
+            pass  # Next redraw cycle handles the new size automatically
+
+        elif 32 <= ch <= 126:
+            input_buffer_ref[0] += chr(ch)
+
+
+async def ui_loop(
+    stdscr,
+    username: str,
+    chat_history: list,
+    input_buffer_ref: list,
+    msg_queue: asyncio.Queue,
+    notify_queue: asyncio.Queue,
+    stop_event: asyncio.Event,
+):
+    """Polls for new network messages and redraws the screen every 50 ms."""
+    while not stop_event.is_set():
+        # Drain all pending messages
+        while not msg_queue.empty():
+            try:
+                msg_data = msg_queue.get_nowait()
+                chat_history.append(msg_data)
+                # Only notify for messages from other users
+                if msg_data.get("user") == username:
+                    notify_queue.put_nowait(msg_data)
+            except asyncio.QueueEmpty:
+                break
+
+        draw_screen(stdscr, username, chat_history, input_buffer_ref[0])
+        await asyncio.sleep(0.05)  # ~20 FPS redraw rate
+
+
+async def notifier_task(
+    username: str,
+    notifier: DesktopNotifier,
+    notify_queue: asyncio.Queue,
+    stop_event: asyncio.Event,
+):
+    """Waits for incoming messages and fires a desktop notification for each one.
+
+    Uses a dedicated asyncio.Queue (notify_queue) that the ui_loop populates,
+    keeping notification logic fully decoupled from rendering.
+    """
+    while not stop_event.is_set():
+        try:
+            msg = await asyncio.wait_for(notify_queue.get(), timeout=0.1)
+        except asyncio.TimeoutError:
+            continue  # Re-check stop_event regularly
+
+        sender = msg.get("user", "Unknown")
+        text = msg.get("text", "")
+
+        await notifier.send(
+            title=f"New message from {sender}",
+            message=text,
+            reply_field=ReplyField(
+                title="Reply",
+                button_title="Send",
+                on_replied=lambda reply_text: None,  # To-do: wire up to protocol.send
+            ),
+            on_clicked=lambda: None,  # To-do: focus app when clicked
+            sound=PING_SOUND,
+        )
+
+
+async def run_chat_async(stdscr, username: str, user_color: str):
+    """Sets up asyncio networking and runs the UI + input coroutines concurrently."""
+    init_colors()
+
+    stdscr.nodelay(True)
+    curses.curs_set(0)
+
+    loop = asyncio.get_running_loop()
+    msg_queue: asyncio.Queue = asyncio.Queue()
+    notify_queue: asyncio.Queue = asyncio.Queue()
+    chat_history: list = []
+    input_buffer_ref: list = [""]   # Mutable container so both coroutines share state
+    stop_event = asyncio.Event()
+
+    notifier = DesktopNotifier(app_name="Shadow Chat")
+
+    # Register the multicast socket with the event loop
+    raw_sock = create_multicast_socket()
+    _, protocol = await loop.create_datagram_endpoint(
+        lambda: MulticastProtocol(msg_queue),
+        sock=raw_sock,
+    )
+
+    try:
+        await asyncio.gather(
+            ui_loop(stdscr, username, chat_history, input_buffer_ref, msg_queue, notify_queue, stop_event),
+            input_handler(stdscr, loop, protocol, username, user_color,
+                          chat_history, input_buffer_ref, stop_event),
+            notifier_task(username, notifier, notify_queue, stop_event),
+        )
+    finally:
+        if protocol.transport:
+            protocol.transport.close()
+
+
+# ---------------------------------------------------------------------------
+# Entry point
+# ---------------------------------------------------------------------------
+
+def run_chat(stdscr, username: str, user_color: str):
+    """Curses wrapper entry — bridges the synchronous curses.wrapper into asyncio."""
+    asyncio.run(run_chat_async(stdscr, username, user_color))
+
 
 def main():
-    """Startup dialog outside of curses."""
     print("=" * 40)
     print("      Welcome to SHADOW-CHAT")
     print("=" * 40)
-    
-    username = input("Enter your Username: ").strip()
-    if not username:
-        username = "Anonymous"
-        
+
+    username = input("Enter your Username: ").strip() or "Anonymous"
+
     print("\nAvailable colors: cyan, green, yellow, red, magenta, white")
     color = input("Choose a color: ").strip().lower()
     if color not in COLOR_MAP:
         color = 'white'
-        
-    # Start the TUI, wrapped safely to restore terminal state on exit or crash
+
+    # macOS requires the Rubicon event loop to support notification callbacks.
+    # This must be set before asyncio.run() is called inside curses.wrapper.
+    if sys.platform == "darwin":
+        try:
+            from rubicon.objc.eventloop import EventLoopPolicy
+            asyncio.set_event_loop_policy(EventLoopPolicy())
+        except ImportError:
+            pass  # rubicon-objc not installed — notifications may lack callbacks
+
     curses.wrapper(run_chat, username, color)
+
 
 if __name__ == "__main__":
     try:
