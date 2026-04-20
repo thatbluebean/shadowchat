@@ -7,20 +7,11 @@ import queue
 import textwrap
 import time
 import sys
-import os # For running commands on the system
 
 # --- Network Configuration ---
 MCAST_GRP = '224.1.1.1'
 MCAST_PORT = 5007
 
-# --- Set OS version ---
-match sys.platform:
-    case "linux": osver = "linux"
-    case "darwin": osver = "macos"
-    case "win32": osver = "win32"
-    case _: osver = "unknown"
-    
-    
 # Thread-safe queue for incoming messages
 msg_queue = queue.Queue()
 
@@ -102,13 +93,8 @@ def run_chat(stdscr, username, user_color):
         # 1. Process new messages from the network
         while not msg_queue.empty():
             msg_data = msg_queue.get() # { user, color, test, time }
-            
             chat_history.append(msg_data)
-            if username != msg_data.get('user'): # Dont notify for own messages
-                if osver == "linux":
-                    os.system(f'notify-send -a "Shadow Chat" "New message from {msg_data.get('user')}: {msg_data.get('text')}"')
-                
-            
+
         stdscr.erase()
         
         # 2. Draw Header
