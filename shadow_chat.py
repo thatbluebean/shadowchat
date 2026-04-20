@@ -6,6 +6,7 @@ import textwrap
 import time
 import sys
 import asyncio
+import logging  # <-- ADD THIS LINE
 from pathlib import Path
 
 from desktop_notifier import DesktopNotifier, ReplyField, Sound
@@ -308,7 +309,6 @@ def run_chat(stdscr, username: str, user_color: str):
     """Curses wrapper entry — bridges the synchronous curses.wrapper into asyncio."""
     asyncio.run(run_chat_async(stdscr, username, user_color))
 
-
 def main():
     print("=" * 40)
     print("      Welcome to SHADOW-CHAT")
@@ -321,8 +321,6 @@ def main():
     if color not in COLOR_MAP:
         color = 'white'
 
-    # macOS requires the Rubicon event loop to support notification callbacks.
-    # This must be set before asyncio.run() is called inside curses.wrapper.
     if sys.platform == "darwin":
         try:
             from rubicon.objc.eventloop import EventLoopPolicy
@@ -330,8 +328,11 @@ def main():
         except ImportError:
             pass  # rubicon-objc not installed — notifications may lack callbacks
 
-    curses.wrapper(run_chat, username, color)
+    # do NOT print ANY notifications from that notification thing unless they are insane
+    logging.getLogger("desktop_notifier").setLevel(logging.CRITICAL)
+    logging.getLogger("dbus_fast").setLevel(logging.CRITICAL)
 
+    curses.wrapper(run_chat, username, color)
 
 if __name__ == "__main__":
     try:
