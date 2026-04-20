@@ -223,7 +223,7 @@ async def ui_loop(
                 msg_data = msg_queue.get_nowait()
                 chat_history.append(msg_data)
                 # Only notify for messages from other users
-                if msg_data.get("user") == username:
+                if msg_data.get("user") != username:
                     notify_queue.put_nowait(msg_data)
             except asyncio.QueueEmpty:
                 break
