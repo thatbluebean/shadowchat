@@ -54,3 +54,5 @@ WINDOWS
 pip install windows-curses
 python shadow_chat.py
 ```
+
+![](/home/georg/.config/marktext/images/2026-04-20-15-28-18-image.png)
