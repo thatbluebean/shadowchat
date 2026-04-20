@@ -2,8 +2,6 @@
 
 The ONLY chat app you need
 
-
-
 ## 'I saw corps strip farmers of water ... and eventually of land.'
 
 For too long have mainstream corpo messaging applications plagued the world, infecting what should be a simple service with unessessary features which ruin the experience. Shadow chat has none of that bloat and invasion.
@@ -11,6 +9,10 @@ For too long have mainstream corpo messaging applications plagued the world, inf
 We removed slop such as:
 
 - Age verificatin
+
+- Closed source code
+
+- Evil CEOS
 
 - Microtransactions
 
@@ -20,11 +22,13 @@ We removed slop such as:
 
 - Tracking
 
+- Scrolling up or down
+
+- Emojis
+
 - Adding friends
 
 - Data colllection
-
-
 
 **Shadow chat is revolutionary, just read the reviews:**
 
@@ -35,10 +39,6 @@ We removed slop such as:
 'DIscord really does have competition' - Discord CEO
 
 'Wow' - Tim Apple
-
-
-
-
 
 ### INSTRUCTIONS
 
@@ -54,3 +54,5 @@ WINDOWS
 pip install windows-curses
 python shadow_chat.py
 ```
+
+![](/home/georg/.config/marktext/images/2026-04-20-15-28-18-image.png)
