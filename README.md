@@ -47,12 +47,8 @@ Download the .py and run
 MacOS / LINUX
 
 ```
-python shadow_chat.py
+./shadow_chat
 ```
 
 WINDOWS
-
-```
-pip install windows-curses
-python shadow_chat.py
-```
+Just run the .exe
