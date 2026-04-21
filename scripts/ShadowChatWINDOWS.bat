@@ -7,12 +7,12 @@ echo     Preparing Shadow-Chat...
 echo ===================================================
 echo.
 echo Checking for required libraries...
-pip install -r requirements.txt --quiet
+pip install -r ..\requirements.txt --quiet
 echo.
 
 echo Launching ShadowChat..
 echo.
-python shadow_chat.py
+python ..\src\shadow_chat.py
 
 :: If crash pause
 pause

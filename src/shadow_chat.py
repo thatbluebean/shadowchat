@@ -6,7 +6,8 @@ import textwrap
 import time
 import sys
 import asyncio
-import logging  # <-- ADD THIS LINE
+import logging
+import os
 from pathlib import Path
 
 from desktop_notifier import DesktopNotifier, ReplyField, Sound
@@ -21,8 +22,17 @@ COLOR_MAP = {
     'red': 4, 'magenta': 5, 'white': 6
 }
 
-PING_SOUND = Sound(path=Path("ping.mp3").resolve())
+def get_asset_path(filename):
+    """Finds the asset whether running as a dev script or a bundled .exe"""
+    if hasattr(sys, '_MEIPASS'):
+        # PyInstaller gives us a temp folder i think
+        return os.path.join(sys._MEIPASS, 'assets', filename)
+    else:
+        base_dir = Path(__file__).resolve().parent.parent
+        return str(base_dir / 'assets' / filename)
 
+# Use the helper to locate the sound file safely
+PING_SOUND = Sound(path=get_asset_path("ping.mp3"))
 
 # ---------------------------------------------------------------------------
 # Asyncio UDP Protocol
