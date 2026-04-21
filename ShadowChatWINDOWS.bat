@@ -10,10 +10,9 @@ echo Checking for required libraries...
 pip install -r requirements.txt --quiet
 echo.
 
-echo Launching the grid...
+echo Launching ShadowChat..
 echo.
 python shadow_chat.py
 
-:: If the chat crashes or the user exits, pause so they can read any error messages
-:: instead of the window just instantly vanishing.
+:: If crash pause
 pause
