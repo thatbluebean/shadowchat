@@ -6,13 +6,9 @@ The ONLY chat app you need
 
 For too long have mainstream corpo messaging applications plagued the world, infecting what should be a simple service with unessessary features which ruin the experience. Shadow chat has none of that bloat and invasion.
 
-We removed slop such as:
+We removed uneccessary slop such as:
 
 - Age verification
-
-- Closed source code
-
-- Evil CEOS
 
 - Microtransactions
 
@@ -20,15 +16,18 @@ We removed slop such as:
 
 - Sending images 
 
-- Tracking
-
 - Scrolling up or down
 
-- Emojis
-
-- Adding friends
-
 - Data colllection
+
+
+
+### I bet they are too scared to show us the product...
+
+**WRONG**! Behold...
+![Example Image](images/demo.png)
+
+
 
 **Shadow chat is revolutionary, just read the reviews:**
 
