@@ -320,15 +320,43 @@ def run_chat(stdscr, username: str, user_color: str):
     asyncio.run(run_chat_async(stdscr, username, user_color))
 
 def main():
+    # forces Windows to enable ANSI color codes in the terminal
+    if sys.platform == "win32":
+        os.system("")
+
     print("=" * 40)
     print("      Welcome to SHADOW-CHAT")
     print("=" * 40)
 
     username = input("Enter your Username: ").strip() or "Anonymous"
 
-    print("\nAvailable colors: cyan, green, yellow, red, magenta, white")
-    color = input("Choose a color: ").strip().lower()
-    if color not in COLOR_MAP:
+    print("\nAvailable colors:")
+    print("[1] \033[36mcyan\033[0m")
+    print("[2] \033[32mgreen\033[0m")
+    print("[3] \033[33myellow\033[0m")
+    print("[4] \033[31mred\033[0m")
+    print("[5] \033[35mmagenta\033[0m")
+    print("[6] \033[37mwhite\033[0m")
+
+    color_input = input("\nChoose a color: ").strip().lower()
+
+    # Map number choices to their string equivalents
+    number_map = {
+        '1': 'cyan',
+        '2': 'green',
+        '3': 'yellow',
+        '4': 'red',
+        '5': 'magenta',
+        '6': 'white'
+    }
+
+    # did we get a numvber or a word
+    if color_input in number_map:
+        color = number_map[color_input]
+    elif color_input in COLOR_MAP:
+        color = color_input
+    # or nothing
+    else:
         color = 'white'
 
     if sys.platform == "darwin":
@@ -336,9 +364,9 @@ def main():
             from rubicon.objc.eventloop import EventLoopPolicy
             asyncio.set_event_loop_policy(EventLoopPolicy())
         except ImportError:
-            pass  # rubicon-objc not installed — notifications may lack callbacks
+            pass  
 
-    # do NOT print ANY notifications from that notification thing unless they are insane
+    # do NOT print ANY errors from that notification thing unless they are insane
     logging.getLogger("desktop_notifier").setLevel(logging.CRITICAL)
     logging.getLogger("dbus_fast").setLevel(logging.CRITICAL)
 
