@@ -19,11 +19,12 @@ MCAST_PORT = 5007
 # Map user color choices to curses color pairs
 COLOR_MAP = {
     'cyan': 1, 'green': 2, 'yellow': 3,
-    'red': 4, 'magenta': 5, 'white': 6
+    'red': 4, 'magenta': 5, 'white': 6,
+    'blue': 7
 }
 
 def get_asset_path(filename):
-    """Finds the asset whether running as a dev script or a bundled .exe"""
+    '''Finds the asset whether running as a dev script or a bundled .exe'''
     if hasattr(sys, '_MEIPASS'):
         # PyInstaller gives us a temp folder i think
         return os.path.join(sys._MEIPASS, 'assets', filename)
@@ -31,15 +32,14 @@ def get_asset_path(filename):
         base_dir = Path(__file__).resolve().parent.parent
         return str(base_dir / 'assets' / filename)
 
-# Use the helper to locate the sound file safely
-PING_SOUND = Sound(path=get_asset_path("ping.mp3"))
+PING_SOUND = Sound(path=get_asset_path('ping.mp3'))
 
 # ---------------------------------------------------------------------------
 # Asyncio UDP Protocol
 # ---------------------------------------------------------------------------
 
 class MulticastProtocol(asyncio.DatagramProtocol):
-    """Asyncio UDP datagram protocol for multicast send/receive."""
+    '''Asyncio UDP datagram protocol for multicast send/receive.'''
 
     def __init__(self, msg_queue: asyncio.Queue):
         self._queue = msg_queue
@@ -68,7 +68,7 @@ class MulticastProtocol(asyncio.DatagramProtocol):
 
 
 def create_multicast_socket() -> socket.socket:
-    """Creates and configures the raw UDP multicast socket."""
+    '''Creates and configures the raw UDP multicast socket.'''
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
 
     try:
@@ -78,7 +78,7 @@ def create_multicast_socket() -> socket.socket:
 
     sock.bind(('', MCAST_PORT))
 
-    mreq = struct.pack("4sl", socket.inet_aton(MCAST_GRP), socket.INADDR_ANY)
+    mreq = struct.pack('4sl', socket.inet_aton(MCAST_GRP), socket.INADDR_ANY)
     sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
     sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_LOOP, 1)
     sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 1)
@@ -100,15 +100,16 @@ def init_colors():
     curses.init_pair(4, curses.COLOR_RED, -1)
     curses.init_pair(5, curses.COLOR_MAGENTA, -1)
     curses.init_pair(6, curses.COLOR_WHITE, -1)
+    curses.init_pair(7, curses.COLOR_BLUE, -1)
 
 
 def draw_screen(stdscr, username: str, chat_history: list, input_buffer: str):
-    """Renders the full TUI frame."""
+    '''Renders the full TUI frame.'''
     max_y, max_x = stdscr.getmaxyx()
     stdscr.erase()
 
     # Header
-    header_text = f" SHADOW-CHAT | User: {username} | Type /quit or press Ctrl+C to exit "
+    header_text = f' SHADOW-CHAT | User: {username} | Type /quit or press Ctrl+C to exit '
     try:
         stdscr.addstr(0, 0, header_text.ljust(max_x)[:max_x],
                       curses.color_pair(6) | curses.A_REVERSE)
@@ -126,18 +127,18 @@ def draw_screen(stdscr, username: str, chat_history: list, input_buffer: str):
     if chat_win_lines > 0:
         render_lines = []
         for m in chat_history:
-            time_str = m.get("time", "00:00")
-            u_str = m.get("user", "Unknown")
-            c_str = m.get("color", "white")
-            text = m.get("text", "")
+            time_str = m.get('time', '00:00')
+            u_str = m.get('user', 'Unknown')
+            c_str = m.get('color', 'white')
+            text = m.get('text', '')
 
-            prefix = f"[{time_str}] {u_str}: "
-            indent = " " * len(prefix)
+            prefix = f'[{time_str}] {u_str}: '
+            indent = ' ' * len(prefix)
             safe_width = max(10, max_x - 1 - len(prefix))
             wrapped = textwrap.wrap(text, width=safe_width)
 
             if not wrapped:
-                render_lines.append((prefix, "", c_str, True))
+                render_lines.append((prefix, '', c_str, True))
             else:
                 for i, line in enumerate(wrapped):
                     render_lines.append((prefix if i == 0 else indent, line, c_str, i == 0))
@@ -155,7 +156,7 @@ def draw_screen(stdscr, username: str, chat_history: list, input_buffer: str):
                 pass
 
     # Input area
-    prompt = "> "
+    prompt = '> '
     display_input = (input_buffer[-(max_x - 3):]
                      if len(input_buffer) > max_x - 3
                      else input_buffer)
@@ -178,10 +179,10 @@ async def input_handler(
     username: str,
     user_color: str,
     chat_history: list,
-    input_buffer_ref: list,   # single-element list used as a mutable reference
+    input_buffer_ref: list,   
     stop_event: asyncio.Event,
 ):
-    """Reads keystrokes in a thread-pool executor so getch() never blocks the loop."""
+    '''Reads keystrokes in a thread-pool executor so getch() never blocks the loop.'''
     executor = None  # Use the default ThreadPoolExecutor
 
     while not stop_event.is_set():
@@ -194,20 +195,20 @@ async def input_handler(
 
         if ch in (curses.KEY_ENTER, 10, 13):
             clean_input = input_buffer_ref[0].strip()
-            if clean_input == "/quit":
+            if clean_input == '/quit':
                 stop_event.set()
                 break
             if clean_input:
                 out_msg = {
-                    "type": "chat",               # <-- NEW: Tag as a chat message
-                    "user": username,
-                    "color": user_color,
-                    "text": clean_input,
-                    "time": time.strftime("%H:%M"),
+                    'type': 'chat', # tags as a chat type instead of system type
+                    'user': username,
+                    'color': user_color,
+                    'text': clean_input,
+                    'time': time.strftime('%H:%M'),
                 }
                 # Assuming standard asyncio datagram sending:
                 protocol.transport.sendto(json.dumps(out_msg).encode(), (MCAST_GRP, MCAST_PORT))
-            input_buffer_ref[0] = ""
+            input_buffer_ref[0] = ''
 
         elif ch in (curses.KEY_BACKSPACE, 127, 8):
             input_buffer_ref[0] = input_buffer_ref[0][:-1]
@@ -224,39 +225,39 @@ async def ui_loop(
     msg_queue: asyncio.Queue, notify_queue: asyncio.Queue, stop_event: asyncio.Event,
     protocol, seen_users: set
 ):
-    """Polls for new network messages and redraws the screen."""
+    '''Polls for new network messages and redraws the screen.'''
     while not stop_event.is_set():
         while not msg_queue.empty():
             try:
                 msg_data = msg_queue.get_nowait()
-                msg_type = msg_data.get("type", "chat")
-                sender = msg_data.get("user", "Unknown")
+                msg_type = msg_data.get('type', 'chat')
+                sender = msg_data.get('user', 'Unknown')
 
                 # Ignore our own echoes for system messages
                 if sender == username:
-                    if msg_type == "chat":
+                    if msg_type == 'chat':
                         chat_history.append(msg_data)
                     continue
 
                 # Handle the Handshakes
-                if msg_type == "join":
+                if msg_type == 'join':
                     seen_users.add(sender)
                     # Silently tell the new user we are here
-                    presence_msg = {"type": "presence", "user": username}
+                    presence_msg = {'type': 'presence', 'user': username}
                     protocol.transport.sendto(json.dumps(presence_msg).encode(), (MCAST_GRP, MCAST_PORT))
                     
                     # Optional: Announce to YOU that someone joined
                     chat_history.append({
-                        "user": "SYSTEM", "color": "cyan", 
-                        "text": f"{sender} joined the chat.", 
-                        "time": time.strftime("%H:%M")
+                        'user': '--- SYSTEM ---', 'color': 'blue', 
+                        'text': f'{sender} joined the chat.', 
+                        'time': time.strftime('%H:%M')
                     })
 
-                elif msg_type == "presence":
+                elif msg_type == 'presence':
                     # Just add them to the hidden list, don't show in chat
                     seen_users.add(sender)
 
-                elif msg_type == "chat":
+                elif msg_type == 'chat':
                     # Normal chat logic
                     chat_history.append(msg_data)
                     notify_queue.put_nowait(msg_data)
@@ -275,26 +276,26 @@ async def notifier_task(
     notify_queue: asyncio.Queue,
     stop_event: asyncio.Event,
 ):
-    """Waits for incoming messages and fires a desktop notification for each one.
+    '''Waits for incoming messages and fires a desktop notification for each one.
 
     Uses a dedicated asyncio.Queue (notify_queue) that the ui_loop populates,
     keeping notification logic fully decoupled from rendering.
-    """
+    '''
     while not stop_event.is_set():
         try:
             msg = await asyncio.wait_for(notify_queue.get(), timeout=0.1)
         except asyncio.TimeoutError:
             continue  # Re-check stop_event regularly
 
-        sender = msg.get("user", "Unknown")
-        text = msg.get("text", "")
+        sender = msg.get('user', 'Unknown')
+        text = msg.get('text', '')
 
         await notifier.send(
-            title=f"New message from {sender}",
+            title=f'New message from {sender}',
             message=text,
             reply_field=ReplyField(
-                title="Reply",
-                button_title="Send",
+                title='Reply',
+                button_title='Send',
                 on_replied=lambda reply_text: None,  # To-do: wire up to protocol.send
             ),
             on_clicked=lambda: None,  # To-do: focus app when clicked
@@ -303,9 +304,9 @@ async def notifier_task(
 
 
 async def welcome_sequence(username: str, protocol, chat_history: list, seen_users: set):
-    """Broadcasts a join ping, waits for replies, and prints the welcome message."""
+    '''Broadcasts a join ping, waits for replies, and prints the welcome message.'''
     # 1. Send the join ping to the network
-    join_msg = {"type": "join", "user": username}
+    join_msg = {'type': 'join', 'user': username}
     protocol.transport.sendto(json.dumps(join_msg).encode(), (MCAST_GRP, MCAST_PORT))
     
     # 2. Wait 1.5 seconds to let network presence replies arrive
@@ -314,22 +315,22 @@ async def welcome_sequence(username: str, protocol, chat_history: list, seen_use
     # 3. Format the welcome message
     others = [u for u in seen_users if u != username]
     if others:
-        users_str = ", ".join(others)
+        users_str = ', '.join(others)
     else:
-        users_str = "No one else is here yet."
+        users_str = 'No one else is here yet - invite a friend!'
         
-    welcome_text = f"Welcome {username}! Connected users: {users_str}"
+    welcome_text = f'Welcome {username}! Connected users: {users_str}'
     
     # 4. Inject it locally into the chat window
     chat_history.append({
-        "user": "SYSTEM", 
-        "color": "green", 
-        "text": welcome_text, 
-        "time": time.strftime("%H:%M")
+        'user': '--- SYSTEM ---', 
+        'color': 'blue', 
+        'text': welcome_text, 
+        'time': time.strftime('%H:%M')
     })
 
 async def run_chat_async(stdscr, username: str, user_color: str):
-    """Sets up asyncio networking and runs the UI + input coroutines concurrently."""
+    '''Sets up asyncio networking and runs the UI + input coroutines concurrently.'''
     init_colors()
 
     stdscr.nodelay(True)
@@ -339,11 +340,11 @@ async def run_chat_async(stdscr, username: str, user_color: str):
     msg_queue: asyncio.Queue = asyncio.Queue()
     notify_queue: asyncio.Queue = asyncio.Queue()
     chat_history: list = []
-    input_buffer_ref: list = [""]
+    input_buffer_ref: list = ['']
     seen_users: set = set()         # <-- Track users locally
     stop_event = asyncio.Event()
 
-    notifier = DesktopNotifier(app_name="Shadow Chat")
+    notifier = DesktopNotifier(app_name='Shadow Chat')
 
     raw_sock = create_multicast_socket()
     _, protocol = await loop.create_datagram_endpoint(
@@ -372,29 +373,29 @@ async def run_chat_async(stdscr, username: str, user_color: str):
 # ---------------------------------------------------------------------------
 
 def run_chat(stdscr, username: str, user_color: str):
-    """Curses wrapper entry — bridges the synchronous curses.wrapper into asyncio."""
+    '''Curses wrapper entry — bridges the synchronous curses.wrapper into asyncio.'''
     asyncio.run(run_chat_async(stdscr, username, user_color))
 
 def main():
     # forces Windows to enable ANSI color codes in the terminal
-    if sys.platform == "win32":
-        os.system("")
+    if sys.platform == 'win32':
+        os.system('')
 
-    print("=" * 40)
-    print("      Welcome to SHADOW-CHAT")
-    print("=" * 40)
+    print('=' * 40)
+    print('      Welcome to SHADOW-CHAT')
+    print('=' * 40)
 
-    username = input("Enter your Username: ").strip() or "Anonymous"
+    username = input('Enter your Username: ').strip() or 'Anonymous'
 
-    print("\nAvailable colors:")
-    print("[1] \033[36mcyan\033[0m")
-    print("[2] \033[32mgreen\033[0m")
-    print("[3] \033[33myellow\033[0m")
-    print("[4] \033[31mred\033[0m")
-    print("[5] \033[35mmagenta\033[0m")
-    print("[6] \033[37mwhite\033[0m")
+    print('\nAvailable colors:')
+    print('[1] \033[36mcyan\033[0m')
+    print('[2] \033[32mgreen\033[0m')
+    print('[3] \033[33myellow\033[0m')
+    print('[4] \033[31mred\033[0m')
+    print('[5] \033[35mmagenta\033[0m')
+    print('[6] \033[37mwhite\033[0m')
 
-    color_input = input("\nChoose a color: ").strip().lower()
+    color_input = input('\nChoose a color: ').strip().lower()
 
     # Map number choices to their string equivalents
     number_map = {
@@ -415,7 +416,7 @@ def main():
     else:
         color = 'white'
 
-    if sys.platform == "darwin":
+    if sys.platform == 'darwin':
         try:
             from rubicon.objc.eventloop import EventLoopPolicy
             asyncio.set_event_loop_policy(EventLoopPolicy())
@@ -423,12 +424,12 @@ def main():
             pass  
 
     # do NOT print ANY errors from that notification thing unless they are insane
-    logging.getLogger("desktop_notifier").setLevel(logging.CRITICAL)
-    logging.getLogger("dbus_fast").setLevel(logging.CRITICAL)
+    logging.getLogger('desktop_notifier').setLevel(logging.CRITICAL)
+    logging.getLogger('dbus_fast').setLevel(logging.CRITICAL)
 
     curses.wrapper(run_chat, username, color)
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     try:
         main()
     except KeyboardInterrupt:
