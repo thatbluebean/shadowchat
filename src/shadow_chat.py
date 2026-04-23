@@ -177,60 +177,80 @@ def draw_screen(stdscr, username: str, chat_history: list, input_buffer: str):
 def cmd_help(args: str, context: dict):
     commands = [c for c in COMMAND_REGISTRY]
     cmd_str = ', '.join(commands)
-    context["chat_history"].append({
-        "user": "## SYSTEM ##", "color": "blue",
-        "text": f"Commands: {cmd_str}", 
-        "time": time.strftime("%H:%M")
+    context['chat_history'].append({
+        'user': '## SYSTEM ##', 'color': 'blue',
+        'text': f'Commands: {cmd_str}', 
+        'time': time.strftime('%H:%M')
     })
 
 def cmd_quit(args: str, context: dict):
-    """Triggers the app to shut down."""
-    context["stop_event"].set()
+    '''Triggers the app to shut down.'''
+    context['stop_event'].set()
 
 def cmd_users(args: str, context: dict):
-    """Prints the currently known users to the local chat."""
-    # Filter out the local user and format the list
-    others = [u for u in context["seen_users"] if u != context["user_profile"]["name"]] 
-    users_str = ", ".join(others) if others else "No one else is here."
+    '''Pings the network to actively discover who is online.'''
     
-    context["chat_history"].append({
-        "user": "## SYSTEM ##", "color": "blue",
-        "text": f"Online users: {users_str}", 
-        "time": time.strftime("%H:%M")
-    })
+    async def perform_ping():
+        context['chat_history'].append({
+            'user': '## SYSTEM ##', 'color': 'blue',
+            'text': 'Scanning network for users...', 
+            'time': time.strftime('%H:%M')
+        })
+        
+        context['seen_users'].clear()
+        
+        ping_packet = {'type': 'ping_users'}
+        context['protocol'].transport.sendto(
+            json.dumps(ping_packet).encode(), 
+            (MCAST_GRP, MCAST_PORT)
+        )
+        
+        await asyncio.sleep(1.5)
+        
+        others = [u for u in context['seen_users'] if u != context['user_profile']['name']]
+        users_str = ', '.join(others) if others else 'No one else is here.'
+        
+        context['chat_history'].append({
+            'user': '## SYSTEM ##', 'color': 'blue',
+            'text': f'Online users: {users_str}', 
+            'time': time.strftime('%H:%M')
+        })
+
+    # Fire off the async task in the background so it doesn't freeze the terminal
+    asyncio.create_task(perform_ping())
 
 def cmd_rename(args: str, context: dict):
-    """Changes the user's name locally and announces it to the network."""
+    '''Changes the user's name locally and announces it to the network.'''
     new_name = args.strip()
     if not new_name:
-        return
+        return 
 
-    old_name = context["user_profile"]["name"]
+    old_name = context['user_profile']['name']
 
     # 1. Update the mutable profile state
-    context["user_profile"]["name"] = new_name
+    context['user_profile']['name'] = new_name
 
     # 2. Update our own local list of seen users so /users is accurate for us
-    if old_name in context["seen_users"]:
-        context["seen_users"].remove(old_name)
-    context["seen_users"].add(new_name)
+    if old_name in context['seen_users']:
+        context['seen_users'].remove(old_name)
+    context['seen_users'].add(new_name)
 
     # 3. Print the announcement locally for ourselves
-    context["chat_history"].append({
-        "user": "## SYSTEM ##", "color": "yellow",
-        "text": f"{old_name} has renamed themselves to {new_name}",
-        "time": time.strftime("%H:%M")
+    context['chat_history'].append({
+        'user': '## SYSTEM ##', 'color': 'yellow',
+        'text': f'{old_name} has renamed themselves to {new_name}',
+        'time': time.strftime('%H:%M')
     })
 
-    # 4. Broadcast a specific "rename" packet so OTHER clients update their lists
+    # 4. Broadcast a specific 'rename' packet so OTHER clients update their lists
     rename_packet = {
-        "type": "rename",
-        "user": new_name,  # We include this so our own ui_loop ignores the echo
-        "old_name": old_name,
-        "new_name": new_name
+        'type': 'rename',
+        'user': new_name,  # We include this so our own ui_loop ignores the echo
+        'old_name': old_name,
+        'new_name': new_name
     }
     
-    context["protocol"].transport.sendto(
+    context['protocol'].transport.sendto(
         json.dumps(rename_packet).encode(), 
         (MCAST_GRP, MCAST_PORT)
     )
@@ -238,10 +258,10 @@ def cmd_rename(args: str, context: dict):
 
 # map command to command backend
 COMMAND_REGISTRY = {
-    "/quit": cmd_quit,
-    "/users": cmd_users,
-    "/rename": cmd_rename,
-    "/help": cmd_help
+    '/quit': cmd_quit,
+    '/users': cmd_users,
+    '/rename': cmd_rename,
+    '/help': cmd_help
 }
 
 # --- INPUT HANDLER ---
@@ -271,18 +291,18 @@ async def input_handler(
             clean_input = input_buffer_ref[0].strip()
             
             # --- COMMAND BRAIN ---
-            if clean_input.startswith("/"):
+            if clean_input.startswith('/'):
                 # Split the input into the command + arg
-                parts = clean_input.split(" ", 1)
+                parts = clean_input.split(' ', 1)
                 cmd = parts[0].lower()
-                args = parts[1] if len(parts) > 1 else ""
+                args = parts[1] if len(parts) > 1 else ''
 
                 context = {
-                    "stop_event": stop_event,
-                    "chat_history": chat_history,
-                    "seen_users": seen_users,
-                    "user_profile": user_profile,
-                    "protocol": protocol
+                    'stop_event': stop_event,
+                    'chat_history': chat_history,
+                    'seen_users': seen_users,
+                    'user_profile': user_profile,
+                    'protocol': protocol
                 }
 
                 # the command
@@ -291,24 +311,24 @@ async def input_handler(
                 else:
                     # Handles unknown commands 
                     chat_history.append({
-                        "user": "## SYSTEM ##", "color": "red",
-                        "text": f"Unknown command: {cmd}", 
-                        "time": time.strftime("%H:%M")
+                        'user': '## SYSTEM ##', 'color': 'red',
+                        'text': f'Unknown command: {cmd}', 
+                        'time': time.strftime('%H:%M')
                     })
             
             # --- NORMAL CHAT ---
             elif clean_input:
                 out_msg = {
-                    "type": "chat", 
-                    "user": user_profile["name"],    
-                    "color": user_profile["color"],
-                    "text": clean_input,
-                    "time": time.strftime("%H:%M"),
+                    'type': 'chat', 
+                    'user': user_profile['name'],    
+                    'color': user_profile['color'],
+                    'text': clean_input,
+                    'time': time.strftime('%H:%M'),
                 }
                 protocol.transport.sendto(json.dumps(out_msg).encode(), (MCAST_GRP, MCAST_PORT))
             
             # Clear the input box whether it was a command or a chat
-            input_buffer_ref[0] = ""
+            input_buffer_ref[0] = ''
 
 
         elif ch in (curses.KEY_BACKSPACE, 127, 8):
@@ -343,10 +363,10 @@ async def ui_loop(
                     continue
 
                 # Handle the Handshakes
-                if msg_type == "join":
+                if msg_type == 'join':
                     seen_users.add(sender)
                     # Silently tell the new user we are here
-                    presence_msg = {"type": "presence", "user": user_profile["name"]}
+                    presence_msg = {'type': 'presence', 'user': user_profile['name']}
 
                     protocol.transport.sendto(json.dumps(presence_msg).encode(), (MCAST_GRP, MCAST_PORT))
                     
@@ -361,9 +381,14 @@ async def ui_loop(
                     #  add them to the hidden list
                     seen_users.add(sender)
 
-                elif msg_type == "rename":
-                    old = msg_data.get("old_name")
-                    new = msg_data.get("new_name")
+                elif msg_type == 'ping_users':
+                    # Someone is running /users, silently reply so they know we are here
+                    presence_msg = {'type': 'presence', 'user': user_profile['name']}
+                    protocol.transport.sendto(json.dumps(presence_msg).encode(), (MCAST_GRP, MCAST_PORT))
+
+                elif msg_type == 'rename':
+                    old = msg_data.get('old_name')
+                    new = msg_data.get('new_name')
                     
                     # Swap the names in the background list
                     if old in seen_users:
@@ -372,9 +397,9 @@ async def ui_loop(
                     
                     # Print the announcement to their screen
                     chat_history.append({
-                        "user": "## SYSTEM ##", "color": "yellow",
-                        "text": f"{old} has renamed themselves to {new}",
-                        "time": time.strftime("%H:%M")
+                        'user': '## SYSTEM ##', 'color': 'yellow',
+                        'text': f'{old} has renamed themselves to {new}',
+                        'time': time.strftime('%H:%M')
                     })
 
                 elif msg_type == 'chat':
@@ -385,7 +410,7 @@ async def ui_loop(
             except asyncio.QueueEmpty:
                 break
 
-        draw_screen(stdscr, user_profile["name"], chat_history, input_buffer_ref[0])
+        draw_screen(stdscr, user_profile['name'], chat_history, input_buffer_ref[0])
         await asyncio.sleep(0.05)
 
 async def notifier_task(
@@ -461,7 +486,7 @@ async def run_chat_async(stdscr, username: str, user_color: str):
     input_buffer_ref: list = ['']
     seen_users: set = set() 
     stop_event = asyncio.Event()
-    user_profile = {"name": username, "color": user_color}
+    user_profile = {'name': username, 'color': user_color}
 
     notifier = DesktopNotifier(app_name='Shadow Chat')
 
@@ -471,8 +496,8 @@ async def run_chat_async(stdscr, username: str, user_color: str):
         sock=raw_sock,
     )
 
-# Pass user_profile["name"] since this only runs once at startup
-    asyncio.create_task(welcome_sequence(user_profile["name"], protocol, chat_history, seen_users))
+# Pass user_profile['name'] since this only runs once at startup
+    asyncio.create_task(welcome_sequence(user_profile['name'], protocol, chat_history, seen_users))
 
     try:
         await asyncio.gather(
@@ -481,8 +506,8 @@ async def run_chat_async(stdscr, username: str, user_color: str):
             # Pass user_profile instead of username and user_color
             input_handler(stdscr, loop, protocol, user_profile,
                           chat_history, input_buffer_ref, stop_event, seen_users),
-            # Pass user_profile["name"] 
-            notifier_task(user_profile["name"], notifier, notify_queue, stop_event),
+            # Pass user_profile['name'] 
+            notifier_task(user_profile['name'], notifier, notify_queue, stop_event),
         )
 
     finally:
