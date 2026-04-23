@@ -462,7 +462,7 @@ async def welcome_sequence(username: str, protocol, chat_history: list, seen_use
     else:
         users_str = 'No one else is here yet - invite a friend!'
         
-    welcome_text = f'Welcome {username}! Connected users: {users_str}'
+    welcome_text = f'Welcome {username}! Connected users: {users_str}, try /help'
     
     # 4. Inject it locally into the chat window
     chat_history.append({
@@ -544,7 +544,7 @@ def main():
 
     color_input = input('\nChoose a color: ').strip().lower()
 
-    # Map number choices to their string equivalents
+    # map number choices to their string equivalents
     number_map = {
         '1': 'cyan',
         '2': 'green',
