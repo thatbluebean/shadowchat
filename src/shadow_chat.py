@@ -6,10 +6,7 @@ import textwrap
 import time
 import sys
 import asyncio
-import logging
 import os
-from pathlib import Path
-from desktop_notifier import DesktopNotifier, ReplyField, Sound
 
 # -#- Network Configuration -#-
 MCAST_GRP = '224.1.1.1'
@@ -23,14 +20,6 @@ COLOR_MAP = {
 
 # Thread-safety lock for curses operations
 screen_lock = asyncio.Lock()
-
-def get_asset_path(filename):
-    if hasattr(sys, '_MEIPASS'):
-        return os.path.join(sys._MEIPASS, 'assets', filename)
-    base_dir = Path(__file__).resolve().parent.parent
-    return str(base_dir / 'assets' / filename)
-
-PING_SOUND = Sound(path=get_asset_path('ping.mp3'))
 
 class MulticastProtocol(asyncio.DatagramProtocol):
     def __init__(self, msg_queue: asyncio.Queue):
@@ -177,7 +166,7 @@ async def input_handler(stdscr, protocol, user_profile, chat_history, input_buf_
         elif 32 <= ch <= 126:
             input_buf_ref[0] += chr(ch)
 
-async def ui_loop(stdscr, user_profile, chat_history, input_buf_ref, msg_queue, notify_queue, stop_event, protocol, seen_users):
+async def ui_loop(stdscr, user_profile, chat_history, input_buf_ref, msg_queue, stop_event, protocol, seen_users):
     while not stop_event.is_set():
         while not msg_queue.empty():
             msg = msg_queue.get_nowait()
@@ -188,8 +177,6 @@ async def ui_loop(stdscr, user_profile, chat_history, input_buf_ref, msg_queue, 
 
             if m_type == 'chat':
                 chat_history.append(msg)
-                if sender != user_profile['name']: 
-                    notify_queue.put_nowait(msg)
             
             elif m_type == 'join':
                 seen_users.add(sender)
@@ -210,15 +197,6 @@ async def ui_loop(stdscr, user_profile, chat_history, input_buf_ref, msg_queue, 
         await draw_screen(stdscr, user_profile['name'], chat_history, input_buf_ref[0])
         await asyncio.sleep(0.05)
 
-async def notifier_task(username, notifier, notify_queue, stop_event):
-    while not stop_event.is_set():
-        try:
-            msg = await asyncio.wait_for(notify_queue.get(), timeout=0.5)
-            sender, text = msg.get('user', 'Unknown'), msg.get('text', '')
-            await notifier.send(title=f'Message from {sender}', message=text, sound=PING_SOUND)
-        except asyncio.TimeoutError:
-            pass
-
 async def welcome_sequence(username, protocol, chat_history, seen_users):
     protocol.send({'type': 'join', 'user': username})
     await asyncio.sleep(1.5)
@@ -231,7 +209,7 @@ async def run_chat_async(stdscr, username, color):
     stdscr.nodelay(True)
     curses.curs_set(0)
     
-    msg_queue, notify_queue = asyncio.Queue(), asyncio.Queue()
+    msg_queue = asyncio.Queue()
     chat_history, input_buf_ref, seen_users = [], [''], set()
     stop_event = asyncio.Event()
     user_profile = {'name': username, 'color': color}
@@ -240,14 +218,12 @@ async def run_chat_async(stdscr, username, color):
     loop = asyncio.get_running_loop()
     _, protocol = await loop.create_datagram_endpoint(lambda: MulticastProtocol(msg_queue), sock=raw_sock)
 
-    notifier = DesktopNotifier(app_name='Shadow Chat')
     asyncio.create_task(welcome_sequence(username, protocol, chat_history, seen_users))
 
     try:
         await asyncio.gather(
-            ui_loop(stdscr, user_profile, chat_history, input_buf_ref, msg_queue, notify_queue, stop_event, protocol, seen_users),
-            input_handler(stdscr, protocol, user_profile, chat_history, input_buf_ref, stop_event, seen_users),
-            notifier_task(username, notifier, notify_queue, stop_event)
+            ui_loop(stdscr, user_profile, chat_history, input_buf_ref, msg_queue, stop_event, protocol, seen_users),
+            input_handler(stdscr, protocol, user_profile, chat_history, input_buf_ref, stop_event, seen_users)
         )
     finally:
         if protocol.transport:
@@ -279,9 +255,6 @@ def main():
             from rubicon.objc.eventloop import EventLoopPolicy
             asyncio.set_event_loop_policy(EventLoopPolicy())
         except ImportError: pass  
-
-    logging.getLogger('desktop_notifier').setLevel(logging.CRITICAL)
-    logging.getLogger('dbus_fast').setLevel(logging.CRITICAL)
 
     curses.wrapper(run_chat, username, color)
 

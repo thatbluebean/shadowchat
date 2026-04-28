@@ -2,3 +2,7 @@ build/
 dist/
 *.spec
 __pycache__/
+build-linux/
+build-win/
+dist-linux/
+dist-win/
