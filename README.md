@@ -22,11 +22,13 @@ In an age of the internet where simplicity is scarse, shadowchat does eactly wha
 
 ### Demo
 
+![demo](./images/demo.png)
+
 ---
 
 ### INSTRUCTIONS
 
-Download the .py and run
+gDownload the .py and run
 
 MacOS / LINUX
 
