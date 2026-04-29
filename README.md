@@ -1,43 +1,28 @@
 # SHADOW CHAT
 
-The ONLY chat app you need
+A peer2peer LAN chatroom client, written in Python for your Terminal.
 
-## 'I saw corps strip farmers of water ... and eventually of land.'
+## 'What + Why'
 
-For too long have mainstream corpo messaging applications plagued the world, infecting what should be a simple service with unessessary features which ruin the experience. Shadow chat has none of that bloat and invasion.
+In an age of the internet where simplicity is scarse, shadowchat does eactly what it says, and nothing else.
 
-We removed uneccessary slop such as:
+**Features**
 
-- Age verification
+- P2P chat, no need for a central server
 
-- Microtransactions
+- TUI interface made with curses
 
-- Ads
+- Active maintenance
 
-- Sending images 
+- Window and linux support
 
-- Scrolling up or down
+- Zero levels of encyption
 
-- Data colllection
+---
 
+### Demo
 
-
-### I bet they are too scared to show us the product...
-
-**WRONG**! Behold...
-![Example Image](images/demo.png)
-
-
-
-**Shadow chat is revolutionary, just read the reviews:**
-
-'Changed my life' - David Attenbourgh
-
-'I hate this' - Elon Musk
-
-'DIscord really does have competition' - Discord CEO
-
-'Wow' - Tim Apple
+---
 
 ### INSTRUCTIONS
 
