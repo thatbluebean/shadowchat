@@ -28,7 +28,7 @@ In an age of the internet where simplicity is scarse, shadowchat does eactly wha
 
 ### INSTRUCTIONS
 
-gDownload the .py and run
+Download the .py and run
 
 MacOS / LINUX
 
