@@ -7,6 +7,7 @@ import time
 import sys
 import asyncio
 import os
+import random
 
 # -#- Network Configuration -#-
 MCAST_GRP = '224.1.1.1'
@@ -17,6 +18,10 @@ COLOR_MAP = {
     'red': 4, 'magenta': 5, 'white': 6,
     'blue': 7
 }
+
+with open("assets/ai.json", "r", encoding="utf-8") as f:
+    aijson = json.load(f)
+
 
 # Thread-safety lock for curses operations
 screen_lock = asyncio.Lock()
@@ -132,11 +137,24 @@ def cmd_rename(args: str, context: dict):
 def cmd_help(args: str, context: dict):
     context['chat_history'].append({'user': '## SYSTEM ##', 'color': 'yellow', 'text': 'Commands: /users, /rename [$name], /quit, /help', 'time': time.strftime('%H:%M')})
 
+def cmd_askai(args: str, context: dict,):
+    if not args.strip():
+        context['chat_history'].append({'user': '## SYSTEM ##', 'color': 'red', 'text': 'You must ask a question! Usage: /askai <question>', 'time': time.strftime('%H:%M')})
+        return
+    
+    protocol = context['protocol']
+    current_time = time.strftime('%H:%M')
+
+    protocol.send({'type': 'chat', 'user': context['user_profile']['name'], 'color': context['user_profile']['color'], 'text': f"{args}", 'time': current_time})
+
+    protocol.send({'type': 'chat', 'user': 'SuperAI', 'color': 'magenta','text': random.choice(aijson),'time': current_time})
+
 COMMAND_REGISTRY = {
     '/quit': cmd_quit, 
     '/users': lambda a, c: asyncio.create_task(cmd_users_async(c)),
     '/rename': cmd_rename,
-    '/help': cmd_help
+    '/help': cmd_help,
+    '/askai': cmd_askai
 }
 
 async def input_handler(stdscr, protocol, user_profile, chat_history, input_buf_ref, stop_event, seen_users):
