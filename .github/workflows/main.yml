@@ -11,7 +11,7 @@ jobs:
     name: Build unix binary with PyInstaller
     runs-on: ubuntu-latest
     permissions:
-      contents: write               # needed for creating a release / uploading assets
+      contents: write              # needed for creating a release / uploading assets
 
     steps:
       #--- Checkout source ----------------------------------------------------
@@ -22,15 +22,22 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.13"    # adjust to the version you need
+          python-version: "3.13"   # adjust to the version you need
+          cache: 'pip'             # Optional: speeds up dependency installation
 
       #--- Install build dependencies -------------------------------------------
-      - name: Install PyInstaller
-        run: pip install pyinstaller --break-system-packages
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller
+          # Critical: Install your project's dependencies
+          pip install -r requirements.txt
 
       #--- Build the executable -------------------------------------------------
       - name: Build package
         run: |
+          # Note: If your shadow_chat.spec file is properly configured, 
+          # you can replace the below command with just `pyinstaller shadow_chat.spec`
           pyinstaller \
             --onefile \
             --distpath dist-linux \
@@ -38,19 +45,12 @@ jobs:
             --add-data "assets/ai.json:assets" \
             src/shadow_chat.py
 
-      #--- Create a GitHub release ---------------------------------------------
-      - uses: actions/checkout@v4
-      - uses: ncipollo/release-action@v1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tag: ${{ github.ref_name }}
-          draft: true
-          artifacts: "dist-linux/shadow_chat"
-
-      #--- Upload the built artifact to the release -----------------------------
-      - name: Upload release asset
+      #--- Create a GitHub release & upload asset -----------------------------
+      - name: Create Release and Upload Asset
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ github.ref_name }}
+          draft: true
           files: dist-linux/shadow_chat
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
