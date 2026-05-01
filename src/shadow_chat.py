@@ -146,7 +146,7 @@ def cmd_rename(args: str, context: dict):
     context['protocol'].send({'type': 'rename', 'user': new_name, 'old_name': old_name, 'new_name': new_name})
 
 def cmd_help(args: str, context: dict):
-    context['chat_history'].append({'user': '## SYSTEM ##', 'color': 'yellow', 'text': 'Commands: /users, /rename [$name], /quit, /help', 'time': time.strftime('%H:%M')})
+    context['chat_history'].append({'user': '## SYSTEM ##', 'color': 'yellow', 'text': 'Commands: /users, /rename [$name], /quit, /help, /askai [$question]', 'time': time.strftime('%H:%M')})
 
 def cmd_askai(args: str, context: dict,):
     if not args.strip():
@@ -235,7 +235,7 @@ async def welcome_sequence(username, protocol, chat_history, seen_users):
     await asyncio.sleep(1.5)
     others = [u for u in seen_users if u != username]
     users_str = ', '.join(others) if others else 'No one else is here yet.'
-    chat_history.append({'user': '-- SHADOW --', 'color': 'blue', 'text': f'Welcome! Online: {users_str}', 'time': time.strftime('%H:%M')})
+    chat_history.append({'user': '-- SHADOW --', 'color': 'blue', 'text': f'Welcome! Online: {users_str}, try /help!', 'time': time.strftime('%H:%M')})
 
 async def run_chat_async(stdscr, username, color):
     init_colors()
