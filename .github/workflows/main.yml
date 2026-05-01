@@ -39,12 +39,13 @@ jobs:
             src/shadow_chat.py
 
       #--- Create a GitHub release ---------------------------------------------
-      - name: Create release
-        uses: ncipollo/release-action@v1
+      - uses: actions/checkout@v4
+      - uses: ncipollo/release-action@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag: ${{ github.ref_name }}
           draft: true
+          artifacts: "dist-linux/shadow_chat"
 
       #--- Upload the built artifact to the release -----------------------------
       - name: Upload release asset
