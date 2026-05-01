@@ -1,0 +1,66 @@
+name: Build & Release
+
+on:
+  workflow_dispatch:               # manual trigger
+  push:
+    branches:
+      - 'release/*'                # any branch under release/
+
+jobs:
+  build_unix:
+    name: Build unix binary with PyInstaller
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write               # needed for creating a release / uploading assets
+
+    steps:
+      #--- Checkout source ----------------------------------------------------
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      #--- Set up Python -------------------------------------------------------
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"    # adjust to the version you need
+
+      #--- Install build dependencies -------------------------------------------
+      - name: Install PyInstaller
+        run: pip install pyinstaller --break-system-packages
+
+      #--- Build the executable -------------------------------------------------
+      - name: Build package
+        run: |
+          pyinstaller \
+            --onefile \
+            --distpath dist-linux \
+            --workpath build-linux \
+            --add-data "assets/ai.json:assets" \
+            src/shadow_chat.py
+
+      #--- Create a GitHub release ---------------------------------------------
+      - name: Create Release
+        id: create_release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}               # e.g. release/v1.2.3
+          name: Release ${{ github.ref_name }}
+          draft: false
+          prerelease: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      #--- Upload the built artifact to the release -----------------------------
+      - name: Upload release asset
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist-linux/shadow_chat
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      #--- (Optional) also keep the artifact in the workflow UI -----------------
+      - name: Upload artifact for workflow archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: shadowchat-linux
+          path: dist-linux/shadow_chat
