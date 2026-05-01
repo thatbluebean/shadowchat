@@ -26,15 +26,22 @@ In an age of the internet where simplicity is scarse, shadowchat does eactly wha
 
 ---
 
-### INSTRUCTIONS
+### Instructions
 
-Download the .py and run
+Download the executable from the latest release and run:
 
-MacOS / LINUX
+**macOS/Linux**
 
-```
+```bash
 ./shadow_chat
 ```
 
-WINDOWS
+**Windows**
+
 Just run the .exe
+
+### Testing locally
+
+1. Install [just](https://just.systems/)
+2. Install requirements from `requirements.txt` with `pip install -r requirements.txt`
+2. Run `just test`
