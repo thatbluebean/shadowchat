@@ -3,13 +3,13 @@ name: Build & Release
 on:
   workflow_dispatch:               # manual trigger
   push:
-    branches:
-      - 'release/*'                # any branch under release/
+    tags:
+      - 'v*'
 
 jobs:
   build_unix:
     name: Build unix binary with PyInstaller
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     permissions:
       contents: write              # needed for creating a release / uploading assets
 
@@ -50,7 +50,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          draft: true
+          draft: false
           files: dist-linux/shadow_chat
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
