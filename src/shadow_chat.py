@@ -129,10 +129,14 @@ def cmd_rename(args: str, context: dict):
     context['chat_history'].append({'user': '## SYSTEM ##', 'color': 'yellow', 'text': f'{old_name} is now {new_name}', 'time': time.strftime('%H:%M')})
     context['protocol'].send({'type': 'rename', 'user': new_name, 'old_name': old_name, 'new_name': new_name})
 
+def cmd_help(args: str, context: dict):
+    context['chat_history'].append({'user': '## SYSTEM ##', 'color': 'yellow', 'text': 'Commands: /users, /rename [$name], /quit, /help', 'time': time.strftime('%H:%M')})
+
 COMMAND_REGISTRY = {
     '/quit': cmd_quit, 
     '/users': lambda a, c: asyncio.create_task(cmd_users_async(c)),
-    '/rename': cmd_rename
+    '/rename': cmd_rename,
+    '/help': cmd_help
 }
 
 async def input_handler(stdscr, protocol, user_profile, chat_history, input_buf_ref, stop_event, seen_users):
