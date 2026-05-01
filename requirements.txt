@@ -1,2 +1,1 @@
-desktop-notifier
 windows-curses; platform_system == 'Windows'
