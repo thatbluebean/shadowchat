@@ -132,7 +132,7 @@ async def cmd_users_async(ctx):
     ctx['protocol'].send({'type': 'ping_users', 'user': ctx['user_profile']['name']})
     await asyncio.sleep(1.5)
     others = [u for u in ctx['seen_users'] if u != ctx['user_profile']['name']]
-    msg = f"Online users: {', '.join(others)}" if others else "No one else is here."
+    msg = f"Online users: {', '.join(others)}" if others else "No one else is here"
     ctx['chat_history'].append({'user': '## SYSTEM ##', 'color': 'blue', 'text': msg, 'time': time.strftime('%H:%M')})
 
 def cmd_rename(args: str, context: dict):
@@ -146,7 +146,21 @@ def cmd_rename(args: str, context: dict):
     context['protocol'].send({'type': 'rename', 'user': new_name, 'old_name': old_name, 'new_name': new_name})
 
 def cmd_help(args: str, context: dict):
-    context['chat_history'].append({'user': '## SYSTEM ##', 'color': 'yellow', 'text': 'Commands: /users, /rename [$name], /quit, /help, /askai [$question]', 'time': time.strftime('%H:%M')})
+    lines = []
+    for key, (cmd, desc) in COMMAND_REGISTRY.items():
+        # `cmd` is the same as `key`; you can use either one
+        lines.append(f"{key}: {desc}")
+
+    # Join the lines with a newline character
+    command_list = ", ".join(lines)
+    
+    context["chat_history"].append({
+            "user": "## SYSTEM ##",
+            "color": "yellow",
+            "text": f"Commands: {command_list}",
+            "time": time.strftime("%H:%M"),
+            })
+
 
 def cmd_askai(args: str, context: dict,):
     if not args.strip():
@@ -161,11 +175,11 @@ def cmd_askai(args: str, context: dict,):
     protocol.send({'type': 'chat', 'user': 'SuperAI', 'color': 'magenta','text': random.choice(aijson),'time': current_time})
 
 COMMAND_REGISTRY = {
-    '/quit': cmd_quit, 
-    '/users': lambda a, c: asyncio.create_task(cmd_users_async(c)),
-    '/rename': cmd_rename,
-    '/help': cmd_help,
-    '/askai': cmd_askai
+    '/q': (cmd_quit, "Quit shadowchat"), 
+    '/users': (lambda a, c: asyncio.create_task(cmd_users_async(c)), "List users currently online"),
+    '/rename': (cmd_rename, "Change your name"),
+    '/help': (cmd_help, "Show this help"),
+    '/askai': (cmd_askai, "/askai <question>")
 }
 
 async def input_handler(stdscr, protocol, user_profile, chat_history, input_buf_ref, stop_event, seen_users):
@@ -184,7 +198,7 @@ async def input_handler(stdscr, protocol, user_profile, chat_history, input_buf_
                 cmd = parts[0].lower()
                 if cmd in COMMAND_REGISTRY:
                     context = {'stop_event': stop_event, 'chat_history': chat_history, 'seen_users': seen_users, 'user_profile': user_profile, 'protocol': protocol}
-                    COMMAND_REGISTRY[cmd](parts[1] if len(parts)>1 else '', context)
+                    COMMAND_REGISTRY[cmd][0](parts[1] if len(parts)>1 else '', context) # Added [0] as the command registry contains comments now
                 else:
                     chat_history.append({'user': '## SYSTEM ##', 'color': 'red', 'text': f'Unknown command: {cmd}', 'time': time.strftime('%H:%M')})
             elif cmd_text:
