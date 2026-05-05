@@ -64,7 +64,7 @@ jobs:
         with:
           tag_name: ${{ github.ref_name }}
           body_path: ./CHANGELOG.md
-          draft: true
+          draft: false
           files: dist-output/shadow_chat${{ matrix.ext }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
