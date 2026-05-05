@@ -16,10 +16,6 @@ jobs:
       fail-fast: false             # If one OS fails, don't cancel the others
       matrix:
         include:
-          - os: ubuntu-latest
-            name: linux
-            ext: ""
-            sep: ":"
           - os: macos-latest
             name: macos
             ext: ""
