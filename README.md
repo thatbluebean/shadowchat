@@ -14,7 +14,7 @@ In an age of the internet where simplicity is scarse, shadowchat does eactly wha
 
 - Active maintenance
 
-- Window and linux support
+- Window, Linu and macO support
 
 - Zero levels of encyption
 

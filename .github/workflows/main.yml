@@ -7,11 +7,23 @@ on:
       - 'v*'
 
 jobs:
-  build_unix:
-    name: Build unix binary with PyInstaller
-    runs-on: macos-latest
+  build:
+    name: Build on ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
     permissions:
       contents: write              # needed for creating a release / uploading assets
+    strategy:
+      fail-fast: false             # If one OS fails, don't cancel the others
+      matrix:
+        include:
+          - os: macos-latest
+            name: macos
+            ext: ""
+            sep: ":"
+          - os: windows-latest
+            name: windows
+            ext: ".exe"
+            sep: ";"
 
     steps:
       #--- Checkout source ----------------------------------------------------
@@ -35,24 +47,25 @@ jobs:
 
       #--- Build the executable -------------------------------------------------
       - name: Build package
+        shell: bash                # Forces bash on Windows so '\' line-breaks work
         run: |
-          # Note: If your shadow_chat.spec file is properly configured, 
-          # you can replace the below command with just `pyinstaller shadow_chat.spec`
           pyinstaller \
             --onefile \
-            --distpath dist-linux \
-            --workpath build-linux \
-            --add-data "assets/ai.json:assets" \
+            --distpath dist-output \
+            --workpath build-output \
+            --add-data "assets/ai.json${{ matrix.sep }}assets" \
             src/shadow_chat.py
 
       #--- Create a GitHub release & upload asset -----------------------------
+      # The softprops action is matrix-safe. The first OS to finish will create 
+      # the release, and the subsequent OS jobs will append their files to it.
       - name: Create Release and Upload Asset
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
           body_path: ./CHANGELOG.md
-          draft: false
-          files: dist-linux/shadow_chat
+          draft: true
+          files: dist-output/shadow_chat${{ matrix.ext }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -60,5 +73,5 @@ jobs:
       - name: Upload artifact for workflow archive
         uses: actions/upload-artifact@v4
         with:
-          name: shadowchat-linux
-          path: dist-linux/shadow_chat
+          name: shadowchat-${{ matrix.name }}
+          path: dist-output/shadow_chat${{ matrix.ext }}
