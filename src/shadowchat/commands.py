@@ -115,6 +115,7 @@ def cmd_askai(args: str, context: dict):
 def build_command_registry():
     return {
         "/q": (cmd_quit, "Quit shadowchat"),
+        "/quit": (cmd_quit, "Quit shadowchat"),
         "/users": (
             lambda a, c: asyncio.create_task(cmd_users_async(c)),
             "List users currently online",
