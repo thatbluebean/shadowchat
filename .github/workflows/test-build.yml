@@ -1,4 +1,4 @@
-name: Build & Release
+name: Test build workflow
 
 on:
   workflow_dispatch:               # manual trigger
