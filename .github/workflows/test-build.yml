@@ -37,13 +37,12 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.13"   # adjust to the version you need
+          python-version: "3.14"   # adjust to the version you need
           cache: 'pip'             # Optional: speeds up dependency installation
 
       #--- Install build dependencies -------------------------------------------
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
           pip install pyinstaller
           # Critical: Install your project's dependencies
           pip install -r requirements.txt
@@ -59,7 +58,7 @@ jobs:
             --workpath build-output \
             --add-data "assets/ai.json${{ matrix.sep }}assets" \
             --optimize 2 \
-            --name shadow_chat${{ matrix.ext }} \
+            --name shadowchat-${{ matrix.name }}${{ matrix.ext }} \
             --target-architecture universal2 \
             src/shadow_chat.py
 
@@ -68,4 +67,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: shadowchat-${{ matrix.name }}
-          path: dist-output/shadow_chat${{ matrix.ext }}
+          path: dist-output/shadowchat-${{ matrix.name }}${{ matrix.ext }}
