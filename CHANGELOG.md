@@ -1,1 +1,3 @@
-Made /help menu better and fixed typo
+Linux builds actually work.
+Better file extentions.
+macOS binary is universal.
