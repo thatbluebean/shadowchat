@@ -18,7 +18,11 @@ jobs:
         include:
           - os: macos-latest
             name: macos
-            ext: ""
+            ext: ".command"
+            sep: ":"
+          - os: ubuntu-latest
+            name: linux
+            ext: ".run"
             sep: ":"
           - os: windows-latest
             name: windows
