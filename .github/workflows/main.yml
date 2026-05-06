@@ -59,7 +59,7 @@ jobs:
             --workpath build-output \
             --add-data "assets/ai.json${{ matrix.sep }}assets" \
             --optimize 2 \
-            --name shadow_chat.${{ matrix.ext }} \
+            --name shadow_chat${{ matrix.ext }} \
             --target-architecture universal2 \
             src/shadow_chat.py
 
