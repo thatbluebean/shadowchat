@@ -8,7 +8,7 @@ import sys
 import asyncio
 import os
 import random
-
+# ruff: noqa: E701
 # -#- Network Configuration -#-
 MCAST_GRP = '224.1.1.1'
 MCAST_PORT = 5007
@@ -137,7 +137,7 @@ async def cmd_users_async(ctx):
 
 def cmd_rename(args: str, context: dict):
     new_name = args.strip()
-    if not new_name: return 
+    if not new_name: return  
     old_name = context['user_profile']['name']
     context['user_profile']['name'] = new_name
     if old_name in context['seen_users']: context['seen_users'].remove(old_name)
