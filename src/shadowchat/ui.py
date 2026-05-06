@@ -32,7 +32,7 @@ async def draw_screen(stdscr, username: str, chat_history: list, input_buffer: s
         stdscr.erase()
 
         # Header
-        header_text = f" SHADOW-CHAT | User: {username} | /quit to exit "
+        header_text = f" SHADOW-CHAT | User: {username} | /quit or /q to exit "
         try:
             stdscr.addstr(
                 0,
