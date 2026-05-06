@@ -1,7 +1,5 @@
 import sys
-
 from shadowchat.cli import main
-
 if __name__ == '__main__':
     try:
         main()
