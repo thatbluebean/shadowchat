@@ -44,4 +44,4 @@ Just run the .exe
 
 1. Install [just](https://just.systems/)
 2. Install requirements from `requirements.txt` with `pip install -r requirements.txt`
-2. Run `just test`
+2. Run `just`
