@@ -51,6 +51,7 @@ jobs:
         run: |
           pyinstaller \
             --onefile \
+            --paths src \
             --distpath dist-output \
             --workpath build-output \
             --add-data "assets/ai.json${{ matrix.sep }}assets" \
